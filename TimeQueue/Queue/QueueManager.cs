@@ -11,7 +11,11 @@ namespace TimeQueue.Queue
         private QueueData<string> head; //这是指针
         private QueueData<string> last; //这是指针
         private int Length = 0;
-        private static readonly int TimeOutMinutes = 3600;
+
+        /// <summary>
+        /// 超时秒数，3600秒=1小时，超时后允许再活1小时.要求高可以改成0。肯定是正整数
+        /// </summary>
+        private static readonly int TimeOutSecond = 3600;  
 
         public int GetLenth()
         {
@@ -63,21 +67,22 @@ namespace TimeQueue.Queue
 
 
         /// <summary>
-        /// 追加，其实是中间插入
+        /// 追加数据，可能是中间插入
         /// </summary>
         /// <param name="item"></param>
         public void Push(QueueData<string> item)
         {
             if (head == null)
             {
-                //没有记录
+                //没有记录，添加
                 head = item;
                 last = item;
                 Length++;
-                Task.Run(() =>
-                {
-                    LogRecorder.SaveLog(item.ID, item.Data, item.TaskTime, LogType.入队成功);
-                });
+
+
+                //写日志
+                //LogRecorder.SaveLog(item.ID, item.Data, item.TaskTime, LogType.入队成功);
+
             }
             else
             {
@@ -93,32 +98,35 @@ namespace TimeQueue.Queue
                     item.Next = head;
                     head = item;
                     Length++;
-                    Task.Run(() =>
-                    {
-                        LogRecorder.SaveLog(item.ID, item.Data, item.TaskTime, LogType.入队成功);
-                    });
+
+                    //写日志
+                    //LogRecorder.SaveLog(item.ID, item.Data, item.TaskTime, LogType.入队成功);
+
                 }
                 else if (item.TaskTime >= last.TaskTime)
                 {
-                    if (item.TaskTime == head.TaskTime && item.Data == head.Data)
+                    //从尾部插入
+                    if (item.TaskTime == last.TaskTime && item.Data == last.Data)
                     {
                         //相同时间相同内容不处理
                         return;
                     }
 
-                    //尾巴
+                    //尾巴增加一个
                     last.Next = item;
                     last = item;
                     Length++;
-                    Task.Run(() =>
-                    {
-                        LogRecorder.SaveLog(item.ID, item.Data, item.TaskTime, LogType.入队成功);
-                    });
+
+
+                    //写日志
+                    //LogRecorder.SaveLog(item.ID, item.Data, item.TaskTime, LogType.入队成功);
+
                 }
                 else
                 {
 
-                    //其它中间
+                    //中间插入，一个一个的试
+                    //这是一个链表，大佬们可以做优化
                     QueueData<string> p = head.Next;
                     QueueData<string> q = head;
                     bool addFlag = false;
@@ -136,10 +144,10 @@ namespace TimeQueue.Queue
                             q.Next = item;
                             addFlag = true;
                             Length++;
-                            Task.Run(() =>
-                            {
-                                LogRecorder.SaveLog(item.ID, item.Data, item.TaskTime, LogType.入队成功);
-                            });
+                            
+                            //写日志
+                            //LogRecorder.SaveLog(item.ID, item.Data, item.TaskTime, LogType.入队成功);
+                             
                             break;
                         }
                         else
@@ -150,10 +158,8 @@ namespace TimeQueue.Queue
                     }
                     if (addFlag == false)
                     {
-                        Task.Run(() =>
-                        {
-                            LogRecorder.SaveLog(item.ID, item.Data, item.TaskTime, LogType.入队失败);
-                        });
+                        //写日志
+                        //LogRecorder.SaveLog(item.ID, item.Data, item.TaskTime, LogType.入队失败); 
                     }
                 }
 
@@ -173,30 +179,28 @@ namespace TimeQueue.Queue
             else
             {
                 QueueData<string> p = head;
-                long ID = p.ID;
+                //long ID = p.ID;
                 //当前时间减头的时间，大于0表示超过了
                 System.TimeSpan t3 = DateTime.Now - p.TaskTime;
                 double second = t3.TotalSeconds;
-                if (second > TimeOutMinutes)
+                if (second > TimeOutSecond)
                 {
-                    //超时一分钟，扔掉 
-                    Task.Run(() =>
-                    {
-                        LogRecorder.DealLog(ID, LogType.超时);
-                    });
+                    //超过阈值，扔掉 
+                    //写日志
+                    //LogRecorder.DealLog(ID, LogType.超时); 
+
                     head = head.Next;
                     p = null;
                     Length--;
 
                     return Pop();
                 }
-                else if (second >= 0 && second < TimeOutMinutes)
+                else if (second >= 0 && second < TimeOutSecond)
                 {
-                    //超时60秒内都可以返回了 
-                    Task.Run(() =>
-                    {
-                        LogRecorder.DealLog(ID, LogType.已处理);
-                    });
+                    //超时但是没有超过阈值,仍然允许返回 
+                    //写日志
+                    //LogRecorder.DealLog(ID, LogType.已处理);
+
                     head = head.Next;
                     p.Next = null;
                     Length--;
